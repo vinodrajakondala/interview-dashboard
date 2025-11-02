@@ -2,20 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Calendar, Clock, TrendingUp, Users, AlertCircle, CheckCircle, Upload, RotateCcw, FileText } from 'lucide-react';
 
-interface Interview {
+interface ParsedInterview {
   id: string;
   date: string;
   time: string;
-  status: 'scheduled' | 'cancelled';
+  status: string;
 }
 
-interface EnrichedInterview extends Interview {
+interface Interview extends Omit<ParsedInterview, 'date'> {
   date: Date;
   dayOfWeek: string;
   isWeekend: boolean;
   timeSlot: string;
   hour: number;
-  status: 'completed' | 'upcoming' | 'cancelled';
 }
 
 const InterviewDashboard = () => {
@@ -61,24 +60,24 @@ Date: 2025-11-07
 Time:   16:00 - 17:00  IST`;
 
   const [inputData, setInputData] = useState('');
-  const [parsedInterviews, setParsedInterviews] = useState<EnrichedInterview[] | null>(null);
+  const [parsedInterviews, setParsedInterviews] = useState<Interview[] | null>(null);
   const [error, setError] = useState('');
   const [showInput, setShowInput] = useState(true);
-  const [modalData, setModalData] = useState<EnrichedInterview[] | null>(null);
+  const [modalData, setModalData] = useState<Interview[] | null>(null);
   const [modalTitle, setModalTitle] = useState('');
 
-  const parseInterviewData = (text: string): Interview[] => {
+  const parseInterviewData = (text: string): ParsedInterview[] => {
     try {
       const lines = text.trim().split('\n');
-      const interviews: Interview[] = [];
-      let currentInterview: Partial<Interview> = {};
+      const interviews: ParsedInterview[] = [];
+      let currentInterview: Partial<ParsedInterview> = {};
       
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
         
         if (line.startsWith('Candidate ID:')) {
           if (currentInterview.id) {
-            interviews.push({ ...currentInterview as Interview });
+            interviews.push({ ...currentInterview } as ParsedInterview);
           }
           currentInterview = {
             id: line.split(':')[1].trim(),
@@ -96,7 +95,7 @@ Time:   16:00 - 17:00  IST`;
       }
       
       if (currentInterview.id) {
-        interviews.push(currentInterview as Interview);
+        interviews.push(currentInterview as ParsedInterview);
       }
 
       if (interviews.length === 0) {
@@ -111,12 +110,12 @@ Time:   16:00 - 17:00  IST`;
       }
 
       return interviews;
-    } catch (err) {
-      throw new Error('Invalid format: ' + (err as Error).message);
+    } catch (err: any) {
+      throw new Error('Invalid format: ' + err.message);
     }
   };
 
-  const enrichInterviews = (interviews: Interview[]): EnrichedInterview[] => {
+  const enrichInterviews = (interviews: ParsedInterview[]): Interview[] => {
     const today = new Date();
     
     return interviews.map(interview => {
@@ -132,8 +131,9 @@ Time:   16:00 - 17:00  IST`;
       else timeSlot = "Night";
 
       const isPast = date < today;
+      const isUpcoming = date >= today;
       
-      let status: 'completed' | 'upcoming' | 'cancelled' = interview.status;
+      let status = interview.status;
       if (status === 'scheduled') {
         status = isPast ? 'completed' : 'upcoming';
       }
@@ -149,8 +149,8 @@ Time:   16:00 - 17:00  IST`;
       const enriched = enrichInterviews(parsed);
       setParsedInterviews(enriched);
       setShowInput(false);
-    } catch (err) {
-      setError((err as Error).message);
+    } catch (err: any) {
+      setError(err.message);
     }
   };
 
@@ -173,8 +173,8 @@ Time:   16:00 - 17:00  IST`;
       const enriched = enrichInterviews(parsed);
       setParsedInterviews(enriched);
       setShowInput(false);
-    } catch (err) {
-      setError((err as Error).message);
+    } catch (err: any) {
+      setError(err.message);
     }
   }, []);
 
@@ -251,11 +251,11 @@ Cancelled`}
 
   // Calculate metrics
   const totalInterviews = parsedInterviews.length;
-  const completedCount = parsedInterviews.filter(i => i.status === "completed").length;
-  const upcomingCount = parsedInterviews.filter(i => i.status === "upcoming").length;
-  const cancelledCount = parsedInterviews.filter(i => i.status === "cancelled").length;
-  const weekdayCount = parsedInterviews.filter(i => !i.isWeekend).length;
-  const weekendCount = parsedInterviews.filter(i => i.isWeekend).length;
+  const completedCount = parsedInterviews.filter((i: Interview) => i.status === "completed").length;
+  const upcomingCount = parsedInterviews.filter((i: Interview) => i.status === "upcoming").length;
+  const cancelledCount = parsedInterviews.filter((i: Interview) => i.status === "cancelled").length;
+  const weekdayCount = parsedInterviews.filter((i: Interview) => !i.isWeekend).length;
+  const weekendCount = parsedInterviews.filter((i: Interview) => i.isWeekend).length;
 
   // Weekday vs Weekend data
   const weekdayData = [
@@ -267,19 +267,19 @@ Cancelled`}
   const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const dayDistribution = dayOrder.map(day => ({
     name: day.slice(0, 3),
-    count: parsedInterviews.filter(i => i.dayOfWeek === day).length
+    count: parsedInterviews.filter((i: Interview) => i.dayOfWeek === day).length
   }));
 
   // Time slot distribution
   const timeSlotData = [
-    { name: 'Morning', count: parsedInterviews.filter(i => i.timeSlot === "Morning").length },
-    { name: 'Afternoon', count: parsedInterviews.filter(i => i.timeSlot === "Afternoon").length },
-    { name: 'Evening', count: parsedInterviews.filter(i => i.timeSlot === "Evening").length },
-    { name: 'Night', count: parsedInterviews.filter(i => i.timeSlot === "Night").length }
+    { name: 'Morning', count: parsedInterviews.filter((i: Interview) => i.timeSlot === "Morning").length },
+    { name: 'Afternoon', count: parsedInterviews.filter((i: Interview) => i.timeSlot === "Afternoon").length },
+    { name: 'Evening', count: parsedInterviews.filter((i: Interview) => i.timeSlot === "Evening").length },
+    { name: 'Night', count: parsedInterviews.filter((i: Interview) => i.timeSlot === "Night").length }
   ];
 
   // Monthly trend
-  const monthlyData = parsedInterviews.reduce((acc, i) => {
+  const monthlyData = parsedInterviews.reduce((acc: { month: string, count: number }[], i: Interview) => {
     const month = i.date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
     const existing = acc.find(item => item.month === month);
     if (existing) {
@@ -300,7 +300,7 @@ Cancelled`}
   const COLORS = ['#10b981', '#3b82f6', '#ef4444'];
   const WEEKDAY_COLORS = ['#6366f1', '#8b5cf6'];
 
-  const openModal = (title: string, data: EnrichedInterview[]) => {
+  const openModal = (title: string, data: Interview[]) => {
     setModalTitle(title);
     setModalData(data);
   };
@@ -315,7 +315,7 @@ Cancelled`}
 
     return (
       <div className="space-y-4">
-        {modalData.map((interview, idx) => (
+        {modalData.map((interview: Interview, idx: number) => (
           <div key={idx} className="bg-slate-50 rounded-lg p-4 border border-slate-200">
             <div className="flex justify-between items-start mb-2">
               <div>
@@ -524,7 +524,7 @@ Cancelled`}
                     const status = data.name.toLowerCase();
                     openModal(
                       `${data.name} Interviews`,
-                      parsedInterviews.filter(i => i.status === status)
+                      parsedInterviews.filter((i: Interview) => i.status === status)
                     );
                   }}
                   style={{ cursor: 'pointer' }}
@@ -556,7 +556,7 @@ Cancelled`}
                     const fullDayName = dayOrder.find(d => d.startsWith(data.name));
                     openModal(
                       `${fullDayName} Interviews`,
-                      parsedInterviews.filter(i => i.dayOfWeek === fullDayName)
+                      parsedInterviews.filter((i: Interview) => i.dayOfWeek === fullDayName)
                     );
                   }}
                   style={{ cursor: 'pointer' }}
@@ -582,7 +582,7 @@ Cancelled`}
                   onClick={(data) => {
                     openModal(
                       `${data.name} Time Slot Interviews`,
-                      parsedInterviews.filter(i => i.timeSlot === data.name)
+                      parsedInterviews.filter((i: Interview) => i.timeSlot === data.name)
                     );
                   }}
                   style={{ cursor: 'pointer' }}
@@ -608,12 +608,12 @@ Cancelled`}
                 stroke="#10b981" 
                 strokeWidth={3} 
                 dot={{ r: 6, cursor: 'pointer' }}
-                onClick={(data) => {
-                  if (data && data.month) {
+                onClick={(data: any) => {
+                  if (data && data.payload.month) {
                     openModal(
-                      `${data.month} Interviews`,
-                      parsedInterviews.filter(i => 
-                        i.date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) === data.month
+                      `${data.payload.month} Interviews`,
+                      parsedInterviews.filter((i: Interview) => 
+                        i.date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) === data.payload.month
                       )
                     );
                   }
@@ -633,7 +633,7 @@ Cancelled`}
               Upcoming Interviews
             </h3>
             <div className="space-y-3">
-              {parsedInterviews.filter(i => i.status === "upcoming").map(interview => (
+              {parsedInterviews.filter((i: Interview) => i.status === "upcoming").map((interview: Interview) => (
                 <div key={interview.id} className="bg-white/10 backdrop-blur rounded-lg p-4">
                   <div className="flex justify-between items-center">
                     <div>
